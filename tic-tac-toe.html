@@ -1,0 +1,349 @@
+<html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Tic-Tac-Toe Experience</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-image: url('https://images.unsplash.com/photo-1553095066-5014bc7b7f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            padding: 2rem;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 10px;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+
+        .cell.x {
+            color: #ff6b6b;
+        }
+
+        .cell.o {
+            color: #4ecdc4;
+        }
+
+        #status {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            font-weight: 300;
+        }
+
+        button {
+            background: #4ecdc4;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #45b7aa;
+        }
+
+        .settings {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        select {
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .winner-line {
+            position: absolute;
+            background: #ffd700;
+            z-index: 1;
+            transition: all 0.5s ease;
+        }
+
+        @keyframes celebrate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .celebrate {
+            animation: celebrate 0.5s ease infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ultimate Tic-Tac-Toe</h1>
+        <div class="settings">
+            <select id="game-mode">
+                <option value="human">Human vs Human</option>
+                <option value="ai">Human vs AI</option>
+            </select>
+            <select id="difficulty" style="display: none;">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+        <div id="game-board"></div>
+        <div id="status">Player X's turn</div>
+        <button id="reset-btn">Reset Game</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <script>
+        const board = document.getElementById('game-board');
+        const status = document.getElementById('status');
+        const resetBtn = document.getElementById('reset-btn');
+        const gameModeSelect = document.getElementById('game-mode');
+        const difficultySelect = document.getElementById('difficulty');
+        let currentPlayer = 'X';
+        let gameState = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
+        let gameMode = 'human';
+        let aiDifficulty = 'easy';
+
+        const winningConditions = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [2, 4, 6]
+        ];
+
+        function createBoard() {
+            board.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('button');
+                cell.classList.add('cell');
+                cell.setAttribute('data-cell-index', i);
+                cell.addEventListener('click', handleCellClick);
+                board.appendChild(cell);
+            }
+        }
+
+        function handleCellClick(e) {
+            const clickedCell = e.target;
+            const clickedCellIndex = parseInt(clickedCell.getAttribute('data-cell-index'));
+
+            if (gameState[clickedCellIndex] !== '' || !gameActive) return;
+
+            updateCell(clickedCell, clickedCellIndex);
+            checkForWinOrDraw();
+
+            if (gameActive && gameMode === 'ai' && currentPlayer === 'O') {
+                setTimeout(makeAiMove, 500);
+            }
+        }
+
+        function updateCell(cell, index) {
+            gameState[index] = currentPlayer;
+            cell.textContent = currentPlayer;
+            cell.classList.add(currentPlayer.toLowerCase());
+            gsap.from(cell, {duration: 0.5, scale: 0, ease: "back.out(1.7)"});
+        }
+
+        function changePlayer() {
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            status.textContent = `Player ${currentPlayer}'s turn`;
+        }
+
+        function checkForWinOrDraw() {
+            let roundWon = false;
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+                    roundWon = true;
+                    drawWinningLine(a, c);
+                    break;
+                }
+            }
+
+            if (roundWon) {
+                status.textContent = `Player ${currentPlayer} wins!`;
+                status.classList.add('celebrate');
+                gameActive = false;
+                return;
+            }
+
+            if (!gameState.includes('')) {
+                status.textContent = 'Game ended in a draw!';
+                gameActive = false;
+                return;
+            }
+
+            changePlayer();
+        }
+
+        function drawWinningLine(start, end) {
+            const startCell = document.querySelector(`[data-cell-index="${start}"]`);
+            const endCell = document.querySelector(`[data-cell-index="${end}"]`);
+            const startRect = startCell.getBoundingClientRect();
+            const endRect = endCell.getBoundingClientRect();
+
+            const line = document.createElement('div');
+            line.classList.add('winner-line');
+            document.body.appendChild(line);
+
+            const angle = Math.atan2(endRect.top - startRect.top, endRect.left - startRect.left);
+            const length = Math.sqrt(Math.pow(endRect.left - startRect.left, 2) + Math.pow(endRect.top - startRect.top, 2));
+
+            gsap.set(line, {
+                width: length,
+                top: startRect.top + startRect.height / 2,
+                left: startRect.left + startRect.width / 2,
+                rotation: angle * (180 / Math.PI),
+                transformOrigin: "left center"
+            });
+
+            gsap.from(line, {duration: 0.5, scale: 0, ease: "back.out(1.7)"});
+        }
+
+        function resetGame() {
+            currentPlayer = 'X';
+            gameState = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            status.textContent = `Player ${currentPlayer}'s turn`;
+            status.classList.remove('celebrate');
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o');
+            });
+            const winnerLine = document.querySelector('.winner-line');
+            if (winnerLine) winnerLine.remove();
+        }
+
+        function makeAiMove() {
+            let bestScore = -Infinity;
+            let bestMove;
+
+            for (let i = 0; i < gameState.length; i++) {
+                if (gameState[i] === '') {
+                    gameState[i] = 'O';
+                    let score = minimax(gameState, 0, false);
+                    gameState[i] = '';
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = i;
+                    }
+                }
+            }
+
+            const cell = document.querySelector(`[data-cell-index="${bestMove}"]`);
+            updateCell(cell, bestMove);
+            checkForWinOrDraw();
+        }
+
+        function minimax(board, depth, isMaximizing) {
+            const scores = {
+                X: -1,
+                O: 1,
+                tie: 0
+            };
+
+            let result = checkWinner();
+            if (result !== null) {
+                return scores[result];
+            }
+
+            if (isMaximizing) {
+                let bestScore = -Infinity;
+                for (let i = 0; i < board.length; i++) {
+                    if (board[i] === '') {
+                        board[i] = 'O';
+                        let score = minimax(board, depth + 1, false);
+                        board[i] = '';
+                        bestScore = Math.max(score, bestScore);
+                    }
+                }
+                return bestScore;
+            } else {
+                let bestScore = Infinity;
+                for (let i = 0; i < board.length; i++) {
+                    if (board[i] === '') {
+                        board[i] = 'X';
+                        let score = minimax(board, depth + 1, true);
+                        board[i] = '';
+                        bestScore = Math.min(score, bestScore);
+                    }
+                }
+                return bestScore;
+            }
+        }
+
+        function checkWinner() {
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+                    return gameState[a];
+                }
+            }
+            if (!gameState.includes('')) return 'tie';
+            return null;
+        }
+
+        resetBtn.addEventListener('click', resetGame);
+
+        gameModeSelect.addEventListener('change', (e) => {
+            gameMode = e.target.value;
+            difficultySelect.style.display = gameMode === 'ai' ? 'block' : 'none';
+            resetGame();
+        });
+
+        difficultySelect.addEventListener('change', (e) => {
+            aiDifficulty = e.target.value;
+            resetGame();
+        });
+
+        createBoard();
+    </script>
+</body>
+</html>
